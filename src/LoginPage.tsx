@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { HardHat, LoaderCircle, LockKeyhole, Mail } from 'lucide-react'
 import { supabase } from './lib/supabase'
 
