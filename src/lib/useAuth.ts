@@ -21,26 +21,29 @@ export function useAuth(): AuthState {
 
   const refreshProfile = useCallback(async () => {
     if (!supabase) return
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) throw userError
+      if (!user) {
+        setProfile(null)
+        return
+      }
+
+      const { data, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, created_at')
+        .eq('id', user.id)
+        .single()
+
+      if (profileError) throw profileError
+
+      setProfile(data as UserProfile)
+      setError(null)
+    } catch (profileError) {
       setProfile(null)
-      return
+      setError(profileError instanceof Error ? profileError.message : 'Не удалось загрузить профиль')
     }
-
-    const { data, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, full_name, role, created_at')
-      .eq('id', user.id)
-      .single()
-
-    if (profileError) {
-      setError(profileError.message)
-      setProfile(null)
-      return
-    }
-
-    setError(null)
-    setProfile(data as UserProfile)
   }, [])
 
   useEffect(() => {
@@ -50,23 +53,39 @@ export function useAuth(): AuthState {
     }
 
     let active = true
+
     supabase.auth.getSession().then(async ({ data, error: sessionError }) => {
       if (!active) return
       if (sessionError) setError(sessionError.message)
       setSession(data.session)
       if (data.session) await refreshProfile()
       if (active) setLoading(false)
+    }).catch((sessionError: unknown) => {
+      if (!active) return
+      setError(sessionError instanceof Error ? sessionError.message : 'Не удалось проверить авторизацию')
+      setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return
       setSession(nextSession)
+
       if (!nextSession) {
         setProfile(null)
+        setError(null)
         setLoading(false)
         return
       }
-      // Defer profile lookup until the auth callback has completed.
-      window.setTimeout(() => { void refreshProfile() }, 0)
+
+      // Keep the auth screen in its loading state while the profile is fetched.
+      // Defer the request until the Supabase auth callback has completed.
+      setLoading(true)
+      window.setTimeout(() => {
+        if (!active) return
+        void refreshProfile().finally(() => {
+          if (active) setLoading(false)
+        })
+      }, 0)
     })
 
     return () => {
