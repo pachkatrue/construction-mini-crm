@@ -51,6 +51,10 @@ function App() {
     setTasks(current => current.map(task => task.id === id ? { ...task, status } : task))
   }
 
+  if (auth.configured && auth.loading) return <main className="auth-page"><div className="auth-card">Загрузка профиля…</div></main>
+  if (auth.configured && !auth.user) return <LoginPage />
+  if (auth.configured && auth.user && !auth.profile) return <main className="auth-page"><div className="auth-card"><h2>Профиль не найден</h2><p>Попросите администратора проверить запись в таблице profiles.</p><button className="primary-button" onClick={() => void auth.signOut()}>Выйти</button></div></main>
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
