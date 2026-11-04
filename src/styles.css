@@ -18,3 +18,6 @@
 .task-manager-actions{display:flex;gap:5px;justify-content:flex-end}
 .task-manager-actions .complete-button{padding:6px}
 @media(max-width:520px){.task-manager-actions{flex-direction:column}.crm-modal{padding:22px}}
+
+.auth-success{padding:10px 12px;border-radius:7px;background:#edf8f1;color:#397c59;font-size:11px;line-height:1.5}
+.auth-mode-button{border:0;background:none;color:#4775d2;font-weight:700;font-size:10px;padding:0;cursor:pointer}
