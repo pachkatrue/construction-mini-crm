@@ -17,7 +17,10 @@ function App() {
   const [search, setSearch] = useState('')
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [expandedHistoryTask, setExpandedHistoryTask] = useState<string | null>(null)
-  const [modal, setModal] = useState<'project' | 'task' | null>(null)
+  const [modal, setModal] = useState<'project' | 'task' | 'editProject' | 'editTask' | null>(null)
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -48,26 +51,19 @@ function App() {
     const form = new FormData(event.currentTarget)
     setSaving(true); setFormError(null)
     try {
-      await crm.createTask({
+      const input = {
         project_id: String(form.get('project_id')), title: String(form.get('title')).trim(),
         description: String(form.get('description')).trim(), assignee_id: String(form.get('assignee_id')),
         due_date: String(form.get('due_date') ?? ''), priority: String(form.get('priority')),
-      })
-      setModal(null)
+      }
+      if (modal === 'editTask' && editingTaskId) await crm.updateTask(editingTaskId, { ...input, due_date: input.due_date || null })
+      else await crm.createTask(input)
+      setModal(null); setEditingTaskId(null)
     } catch (error) { setFormError(error instanceof Error ? error.message : 'Не удалось создать задачу') }
     finally { setSaving(false) }
   }
 
-  async function editProject(project: typeof crm.projects[number]) {
-    const name = window.prompt('Название объекта:', project.name)?.trim()
-    if (!name) return
-    const address = window.prompt('Адрес объекта:', project.address)?.trim()
-    if (address === null || address === undefined) return
-    const description = window.prompt('Описание объекта:', project.description)?.trim()
-    if (description === null || description === undefined) return
-    try { await crm.updateProject(project.id, { name, address, description }) }
-    catch (error) { window.alert(error instanceof Error ? error.message : 'Не удалось изменить объект') }
-  }
+  function editProject(project: typeof crm.projects[number]) { setEditingProjectId(project.id); setFormError(null); setModal('editProject') }
 
   async function removeProject(project: typeof crm.projects[number]) {
     if (!window.confirm('Удалить объект «' + project.name + '»? Все связанные задачи также будут удалены.')) return
@@ -75,20 +71,7 @@ function App() {
     catch (error) { window.alert(error instanceof Error ? error.message : 'Не удалось удалить объект') }
   }
 
-  async function editTask(task: typeof crm.tasks[number]) {
-    const title = window.prompt('Название задачи:', task.title)?.trim()
-    if (!title) return
-    const description = window.prompt('Описание задачи:', task.description)?.trim()
-    if (description === null || description === undefined) return
-    const dueDate = window.prompt('Срок (ГГГГ-ММ-ДД, пусто — без срока):', task.due_date ?? '')
-    if (dueDate === null) return
-    try {
-      await crm.updateTask(task.id, {
-        title, description, project_id: task.project_id, assignee_id: task.assignee_id,
-        due_date: dueDate.trim() || null, priority: task.priority,
-      })
-    } catch (error) { window.alert(error instanceof Error ? error.message : 'Не удалось изменить задачу') }
-  }
+  function editTask(task: typeof crm.tasks[number]) { setEditingTaskId(task.id); setFormError(null); setModal('editTask') }
 
   async function removeTask(task: typeof crm.tasks[number]) {
     if (!window.confirm('Удалить задачу «' + task.title + '»?')) return
@@ -143,13 +126,13 @@ function App() {
               {crm.projects.length === 0 ? <div className="empty-state">Объектов пока нет{role === 'manager' ? ' — создайте первый объект.' : '.'}</div> : <div className="project-grid">{crm.projects.map((project, index) => <article className={selectedProject === project.id ? 'project-card selected' : 'project-card'} key={project.id}><div className="project-top"><div className={'project-icon project-icon-' + (index % 3)}><Building2 size={19} /></div><span className="project-menu">•••</span></div><h3>{project.name}</h3><p className="project-address">{project.address || 'Адрес не указан'}</p><div className="progress-meta"><span>Принято задач</span><b>{project.progress}%</b></div><div className="progress-track"><div style={{ width: project.progress + '%' }} /></div><div className="project-footer"><span><ClipboardList size={14} />{project.tasksCount} задач</span><button className="text-button" onClick={() => { setSelectedProject(selectedProject === project.id ? null : project.id); setActiveNav('Обзор') }}>Открыть <ArrowUpRight size={13} /></button></div>{role === 'manager' && <div className="project-actions"><button className="text-button" onClick={() => void editProject(project)}>Изменить</button><button className="text-button danger-text" onClick={() => void removeProject(project)}>Удалить</button></div>}</article>)}</div>}
             </section>}
 
-            {(activeNav === 'Обзор' || activeNav === 'Мои задачи' || activeNav === 'Объекты') && <section className="panel tasks-panel">
+            {selectedTaskId && <section className="panel detail-panel"><div className="section-heading"><div><h2>Карточка задачи</h2><p>Подробная информация и история выполнения</p></div><button className="text-button" onClick={() => setSelectedTaskId(null)}>Закрыть</button></div>{crm.tasks.filter(task => task.id === selectedTaskId).map(task => <><div className="detail-grid"><div><small>Название</small><b>{task.title}</b></div><div><small>Объект</small><b>{task.project?.name || '—'}</b></div><div><small>Исполнитель</small><b>{task.assignee?.full_name || '—'}</b></div><div><small>Статус</small><b>{statusLabels[task.status]}</b></div><div><small>Срок</small><b>{task.due_date || 'Не указан'}</b></div><div><small>Приоритет</small><b>{task.priority}</b></div></div><p className="detail-description">{task.description || 'Описание не добавлено.'}</p><h3>История статусов</h3>{crm.history.filter(item => item.task_id === task.id).map(item => <div className="detail-history-item" key={item.id}>{statusLabels[item.old_status]} → {statusLabels[item.new_status]} · {new Date(item.changed_at).toLocaleString('ru-RU')} · {item.actor?.full_name || 'Пользователь'}{item.comment && <p>{item.comment}</p>}</div>)}</>)}</section>}{(activeNav === 'Обзор' || activeNav === 'Мои задачи' || activeNav === 'Объекты') && <section className="panel tasks-panel">
               <div className="section-heading"><div><h2>{selectedProject ? 'Задачи объекта' : role === 'manager' ? 'Последние задачи' : 'Мои задачи'}</h2><p>Актуальный статус и сроки выполнения</p></div><div className="table-tools"><label className="search-box"><Search size={16} /><input placeholder="Поиск задач..." value={search} onChange={e => setSearch(e.target.value)} /></label></div></div>
               <div className="task-list"><div className="task-row task-head"><span>ЗАДАЧА</span><span>ОТВЕТСТВЕННЫЙ</span><span>СРОК</span><span>СТАТУС</span><span /></div>{visibleTasks.map(task => {
                 const taskHistory = crm.history.filter(entry => entry.task_id === task.id)
                 const historyExpanded = expandedHistoryTask === task.id
                 return <Fragment key={task.id}>
-                  <div className="task-row"><div className="task-name"><b>{task.title}</b><span>{task.project?.name ?? 'Объект удалён'} · {task.description}</span><small className="task-meta">Создал: {task.author?.full_name || 'Неизвестно'} · {new Date(task.created_at).toLocaleDateString('ru-RU')}</small><button className="history-toggle" onClick={() => setExpandedHistoryTask(historyExpanded ? null : task.id)}><Clock3 size={12} /> История ({taskHistory.length}) <ChevronDown size={12} className={historyExpanded ? 'history-chevron expanded' : 'history-chevron'} /></button></div><div className="assignee"><div className="avatar small-avatar">{(task.assignee?.full_name || '?').split(' ').map(x => x[0]).join('')}</div>{task.assignee?.full_name || 'Неизвестно'}</div><div className="due-date">{task.due_date ? new Date(task.due_date + 'T00:00:00').toLocaleDateString('ru-RU') : '—'}</div><div><span className={'status-pill ' + statusClasses[task.status]}>{statusLabels[task.status]}</span></div><div className="task-actions">{role === 'manager' && <><button className="text-button" onClick={() => void editTask(task)}>Изменить</button><button className="text-button danger-text" onClick={() => void removeTask(task)}>Удалить</button></>}{role === 'executor' && task.assignee_id === auth.profile?.id && (task.status === 'new' || task.status === 'revision' || task.status === 'in_progress') ? <button className="complete-button" onClick={() => void moveTask(task.id, task.status === 'new' || task.status === 'revision' ? 'in_progress' : 'review')}>{task.status === 'in_progress' ? 'На проверку' : 'В работу'}</button> : role === 'manager' && task.status === 'review' ? <div className="task-manager-actions"><button className="complete-button" onClick={() => void moveTask(task.id, 'accepted')}>Принять</button><button className="complete-button" onClick={() => void moveTask(task.id, 'revision')}>Доработка</button></div> : <span />}</div></div>
+                  <div className="task-row"><div className="task-name"><b><button className="task-title-button" onClick={() => setSelectedTaskId(selectedTaskId === task.id ? null : task.id)}>{task.title}</button></b><span>{task.project?.name ?? 'Объект удалён'} · {task.description}</span><small className="task-meta">Создал: {task.author?.full_name || 'Неизвестно'} · {new Date(task.created_at).toLocaleDateString('ru-RU')}</small><button className="history-toggle" onClick={() => setExpandedHistoryTask(historyExpanded ? null : task.id)}><Clock3 size={12} /> История ({taskHistory.length}) <ChevronDown size={12} className={historyExpanded ? 'history-chevron expanded' : 'history-chevron'} /></button></div><div className="assignee"><div className="avatar small-avatar">{(task.assignee?.full_name || '?').split(' ').map(x => x[0]).join('')}</div>{task.assignee?.full_name || 'Неизвестно'}</div><div className="due-date">{task.due_date ? new Date(task.due_date + 'T00:00:00').toLocaleDateString('ru-RU') : '—'}</div><div><span className={'status-pill ' + statusClasses[task.status]}>{statusLabels[task.status]}</span></div><div className="task-actions">{role === 'manager' && <><button className="text-button" onClick={() => void editTask(task)}>Изменить</button><button className="text-button danger-text" onClick={() => void removeTask(task)}>Удалить</button></>}{role === 'executor' && task.assignee_id === auth.profile?.id && (task.status === 'new' || task.status === 'revision' || task.status === 'in_progress') ? <button className="complete-button" onClick={() => void moveTask(task.id, task.status === 'new' || task.status === 'revision' ? 'in_progress' : 'review')}>{task.status === 'in_progress' ? 'На проверку' : 'В работу'}</button> : role === 'manager' && task.status === 'review' ? <div className="task-manager-actions"><button className="complete-button" onClick={() => void moveTask(task.id, 'accepted')}>Принять</button><button className="complete-button" onClick={() => void moveTask(task.id, 'revision')}>Доработка</button></div> : <span />}</div></div>
                   {historyExpanded && <div className="task-history-row">{taskHistory.length === 0 ? <p>Изменений статуса пока нет. История начнёт заполняться после первого перехода.</p> : <ol>{taskHistory.map(entry => <li key={entry.id}><div className="history-event"><span className={'status-pill ' + statusClasses[entry.old_status]}>{statusLabels[entry.old_status]}</span><span className="history-arrow">→</span><span className={'status-pill ' + statusClasses[entry.new_status]}>{statusLabels[entry.new_status]}</span><span className="history-date">{new Date(entry.changed_at).toLocaleString('ru-RU')}</span></div><div className="history-meta">{entry.actor?.full_name || 'Пользователь'}{entry.comment ? <span>Комментарий: {entry.comment}</span> : null}</div></li>)}</ol>}</div>}
                 </Fragment>
               })}{visibleTasks.length === 0 && <div className="empty-state">Задачи не найдены</div>}</div>
@@ -161,9 +144,9 @@ function App() {
         </div>
       </main>
 
-      {modal && <div className="modal-backdrop" onClick={() => !saving && setModal(null)}><div className="modal crm-modal" onClick={event => event.stopPropagation()}><button className="modal-close" onClick={() => setModal(null)} disabled={saving}><X size={19} /></button><div className="modal-icon"><FileText size={22} /></div><h2>{modal === 'project' ? 'Новый объект' : 'Создание задачи'}</h2><p>{modal === 'project' ? 'Добавьте строительный объект в рабочую область.' : 'Назначьте задачу участнику команды.'}</p>
-        <form className="crm-form" onSubmit={modal === 'project' ? submitProject : submitTask}>
-          {modal === 'project' ? <><label>Название объекта<input name="name" required maxLength={160} placeholder="ЖК «Северный парк»" /></label><label>Адрес<input name="address" maxLength={240} placeholder="Город, улица, дом" /></label><label>Описание<textarea name="description" rows={3} maxLength={2000} placeholder="Краткое описание объекта" /></label></> : <><label>Объект<select name="project_id" required>{crm.projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label>Название задачи<input name="title" required maxLength={200} placeholder="Например, проверить армирование" /></label><label>Описание<textarea name="description" rows={3} maxLength={3000} /></label><label>Исполнитель<select name="assignee_id" required>{crm.team.filter(member => member.role === 'executor').map(member => <option key={member.id} value={member.id}>{member.full_name || member.id}</option>)}</select></label><label>Срок<input name="due_date" type="date" /></label><label>Приоритет<select name="priority"><option value="medium">Средний</option><option value="high">Высокий</option><option value="low">Низкий</option></select></label></>}
+      {modal && <div className="modal-backdrop" onClick={() => !saving && setModal(null)}><div className="modal crm-modal" onClick={event => event.stopPropagation()}><button className="modal-close" onClick={() => setModal(null)} disabled={saving}><X size={19} /></button><div className="modal-icon"><FileText size={22} /></div><h2>{modal === 'project' ? 'Новый объект' : modal === 'editProject' ? 'Редактирование объекта' : modal === 'editTask' ? 'Редактирование задачи' : 'Создание задачи'}</h2><p>{modal === 'project' || modal === 'editProject' ? 'Данные строительного объекта.' : 'Параметры задачи и назначение исполнителя.'}</p>
+        <form className="crm-form" onSubmit={modal === 'project' || modal === 'editProject' ? submitProject : submitTask}>
+          {(modal === 'project' || modal === 'editProject') ? <><label>Название объекта<input name="name" defaultValue={modal === 'editProject' ? crm.projects.find(item => item.id === editingProjectId)?.name : ''} required maxLength={160} placeholder="ЖК «Северный парк»" /></label><label>Адрес<input name="address" defaultValue={modal === 'editProject' ? crm.projects.find(item => item.id === editingProjectId)?.address : ''} maxLength={240} placeholder="Город, улица, дом" /></label><label>Описание<textarea name="description" defaultValue={modal === 'editProject' ? crm.projects.find(item => item.id === editingProjectId)?.description : ''} rows={3} maxLength={2000} placeholder="Краткое описание объекта" /></label></> : <><label>Объект<select name="project_id" required defaultValue={modal === 'editTask' ? crm.tasks.find(item => item.id === editingTaskId)?.project_id : crm.projects[0]?.id}>{crm.projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label>Название задачи<input name="title" defaultValue={modal === 'editTask' ? crm.tasks.find(item => item.id === editingTaskId)?.title : ''} required maxLength={200} placeholder="Например, проверить армирование" /></label><label>Описание<textarea name="description" defaultValue={modal === 'editTask' ? crm.tasks.find(item => item.id === editingTaskId)?.description : ''} rows={3} maxLength={3000} /></label><label>Исполнитель<select name="assignee_id" required defaultValue={modal === 'editTask' ? crm.tasks.find(item => item.id === editingTaskId)?.assignee_id : crm.team.find(member => member.role === 'executor')?.id}>{crm.team.filter(member => member.role === 'executor').map(member => <option key={member.id} value={member.id}>{member.full_name || member.id}</option>)}</select></label><label>Срок<input name="due_date" type="date" defaultValue={modal === 'editTask' ? crm.tasks.find(item => item.id === editingTaskId)?.due_date ?? '' : ''} /></label><label>Приоритет<select name="priority" defaultValue={modal === 'editTask' ? crm.tasks.find(item => item.id === editingTaskId)?.priority : 'medium'}><option value="medium">Средний</option><option value="high">Высокий</option><option value="low">Низкий</option></select></label></>}
           {formError && <div className="auth-error">{formError}</div>}<button className="primary-button auth-submit" type="submit" disabled={saving || (modal === 'task' && (!crm.projects.length || !crm.team.some(member => member.role === 'executor')))}>{saving ? <LoaderCircle className="spin" size={17} /> : <Plus size={16} />}{saving ? 'Сохраняем…' : 'Сохранить'}</button>
           {modal === 'task' && (!crm.projects.length || !crm.team.some(member => member.role === 'executor')) && <div className="auth-error">Для создания задачи нужен хотя бы один объект и зарегистрированный исполнитель.</div>}
         </form>
