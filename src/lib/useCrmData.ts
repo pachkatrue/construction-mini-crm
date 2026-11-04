@@ -33,6 +33,8 @@ export interface CrmTask {
   status: TaskStatus
   due_date: string | null
   priority: 'low' | 'medium' | 'high'
+  created_at: string
+  author: { full_name: string } | null
   assignee: { id: string; full_name: string } | null
   project: { id: string; name: string } | null
 }
@@ -76,7 +78,7 @@ export function useCrmData(user: UserProfile | null): CrmData {
     try {
       const [projectResult, taskResult, historyResult, teamResult] = await Promise.all([
         supabase.from('projects').select('id,name,address,description,created_at').order('created_at', { ascending: false }),
-        supabase.from('tasks').select('id,project_id,title,description,assignee_id,status,due_date,priority,assignee:profiles!tasks_assignee_id_fkey(id,full_name),project:projects(id,name)').order('created_at', { ascending: false }),
+        supabase.from('tasks').select('id,project_id,title,description,assignee_id,status,due_date,priority,created_at,author:profiles!tasks_created_by_fkey(full_name),assignee:profiles!tasks_assignee_id_fkey(id,full_name),project:projects(id,name)').order('created_at', { ascending: false }),
         supabase.from('task_status_history').select('id,task_id,old_status,new_status,comment,changed_by,changed_at,actor:profiles!task_status_history_changed_by_fkey(full_name)').order('changed_at', { ascending: false }),
         user.role === 'manager'
           ? supabase.from('profiles').select('id,full_name,role,created_at').order('full_name')
