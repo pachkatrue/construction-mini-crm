@@ -139,5 +139,5 @@ export function useCrmData(user: UserProfile | null): CrmData {
     await reload()
   }, [reload])
 
-  return { projects, tasks, team, loading, error, reload, createProject, createTask, changeStatus }
+  return { projects, tasks, history, team, loading, error, reload, createProject, createTask, changeStatus }
 }
