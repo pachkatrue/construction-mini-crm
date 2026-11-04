@@ -21,3 +21,19 @@
 
 .auth-success{padding:10px 12px;border-radius:7px;background:#edf8f1;color:#397c59;font-size:11px;line-height:1.5}
 .auth-mode-button{border:0;background:none;color:#4775d2;font-weight:700;font-size:10px;padding:0;cursor:pointer}
+
+/* Task status history */
+.history-toggle{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:0;border:0;background:transparent;color:#6e86b5;font-size:9px;font-weight:700}
+.history-toggle:hover{color:#356bd6}
+.history-chevron{transition:transform .15s}
+.history-chevron.expanded{transform:rotate(180deg)}
+.task-history-row{grid-column:1/-1;padding:12px 14px 14px;margin:0 0 8px 0;background:#f8faff;border:1px solid #edf1f8;border-radius:8px;color:#697589;font-size:10px}
+.task-history-row>p{margin:0;color:#929baa}
+.task-history-row ol{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.task-history-row li{display:grid;gap:5px}
+.history-event{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.history-arrow{color:#9aa4b3}
+.history-date{margin-left:auto;color:#929baa;font-variant-numeric:tabular-nums}
+.history-meta{display:flex;gap:12px;flex-wrap:wrap;color:#8a94a4}
+.history-meta span{color:#5f6d82}
+@media(max-width:520px){.history-date{margin-left:0;width:100%}.task-history-row{padding:10px}}
