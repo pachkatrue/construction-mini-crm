@@ -116,7 +116,7 @@ function App() {
         <div className="brand"><div className="brand-mark"><HardHat size={21} /></div><div><strong>BuildFlow</strong><span>PROJECT CONTROL</span></div></div>
         <div className="workspace-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
         <nav>
-          {[{ label: 'Обзор', icon: LayoutDashboard }, { label: 'Объекты', icon: Building2 }, { label: 'Мои задачи', icon: ClipboardList }, { label: 'Команда', icon: Users }].map(item => {
+          {[{ label: 'Обзор', icon: LayoutDashboard }, { label: 'Объекты', icon: Building2 }, ...(role === 'executor' ? [{ label: 'Мои задачи', icon: ClipboardList }] : []), { label: 'Команда', icon: Users }].map(item => {
             const Icon = item.icon
             return <button key={item.label} className={activeNav === item.label ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveNav(item.label); setSelectedProject(null) }}><Icon size={18} />{item.label}</button>
           })}
