@@ -47,6 +47,10 @@ interface CrmData {
   reload: () => Promise<void>
   createProject: (input: { name: string; address: string; description: string }) => Promise<void>
   createTask: (input: { project_id: string; title: string; description: string; assignee_id: string; due_date: string; priority: string }) => Promise<void>
+  updateProject: (projectId: string, input: { name: string; address: string; description: string }) => Promise<void>
+  deleteProject: (projectId: string) => Promise<void>
+  updateTask: (taskId: string, input: { title: string; description: string; project_id: string; assignee_id: string; due_date: string | null; priority: string }) => Promise<void>
+  deleteTask: (taskId: string) => Promise<void>
   changeStatus: (taskId: string, status: TaskStatus, comment?: string) => Promise<void>
 }
 
@@ -128,6 +132,34 @@ export function useCrmData(user: UserProfile | null): CrmData {
     await reload()
   }, [reload])
 
+  const updateProject = useCallback(async (projectId: string, input: { name: string; address: string; description: string }) => {
+    if (!supabase) throw new Error('Supabase не настроен')
+    const { error: updateError } = await supabase.from('projects').update(input).eq('id', projectId)
+    if (updateError) throw updateError
+    await reload()
+  }, [reload])
+
+  const deleteProject = useCallback(async (projectId: string) => {
+    if (!supabase) throw new Error('Supabase не настроен')
+    const { error: deleteError } = await supabase.from('projects').delete().eq('id', projectId)
+    if (deleteError) throw deleteError
+    await reload()
+  }, [reload])
+
+  const updateTask = useCallback(async (taskId: string, input: { title: string; description: string; project_id: string; assignee_id: string; due_date: string | null; priority: string }) => {
+    if (!supabase) throw new Error('Supabase не настроен')
+    const { error: updateError } = await supabase.from('tasks').update(input).eq('id', taskId)
+    if (updateError) throw updateError
+    await reload()
+  }, [reload])
+
+  const deleteTask = useCallback(async (taskId: string) => {
+    if (!supabase) throw new Error('Supabase не настроен')
+    const { error: deleteError } = await supabase.from('tasks').delete().eq('id', taskId)
+    if (deleteError) throw deleteError
+    await reload()
+  }, [reload])
+
   const changeStatus = useCallback(async (taskId: string, status: TaskStatus, comment?: string) => {
     if (!supabase) throw new Error('Supabase не настроен')
     const { error: updateError } = await supabase.rpc('change_task_status', {
@@ -139,5 +171,5 @@ export function useCrmData(user: UserProfile | null): CrmData {
     await reload()
   }, [reload])
 
-  return { projects, tasks, history, team, loading, error, reload, createProject, createTask, changeStatus }
+  return { projects, tasks, history, team, loading, error, reload, createProject, createTask, updateProject, deleteProject, updateTask, deleteTask, changeStatus }
 }
