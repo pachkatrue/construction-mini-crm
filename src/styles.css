@@ -37,3 +37,7 @@
 .history-meta{display:flex;gap:12px;flex-wrap:wrap;color:#8a94a4}
 .history-meta span{color:#5f6d82}
 @media(max-width:520px){.history-date{margin-left:0;width:100%}.task-history-row{padding:10px}}
+
+/* Manager CRUD actions and task metadata */
+.project-actions{display:flex;gap:12px;justify-content:flex-end;padding-top:10px;border-top:1px solid #f0f1f4;margin-top:10px}.project-card{display:block;text-align:left;width:100%;border:1px solid #edf0f5;background:#fff;cursor:default}.project-footer .text-button{display:inline-flex;align-items:center;gap:3px}.danger-text{color:#c46d62!important}.task-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}.task-actions .text-button{font-size:9px;padding:3px 0}.task-meta{display:block;margin-top:4px;color:#9aa3b1;font-size:9px}.task-name .task-meta{white-space:normal}
+@media(max-width:800px){.task-actions{gap:4px}.task-actions .text-button{font-size:8px}}
