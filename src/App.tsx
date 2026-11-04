@@ -58,6 +58,44 @@ function App() {
     finally { setSaving(false) }
   }
 
+  async function editProject(project: typeof crm.projects[number]) {
+    const name = window.prompt('Название объекта:', project.name)?.trim()
+    if (!name) return
+    const address = window.prompt('Адрес объекта:', project.address)?.trim()
+    if (address === null || address === undefined) return
+    const description = window.prompt('Описание объекта:', project.description)?.trim()
+    if (description === null || description === undefined) return
+    try { await crm.updateProject(project.id, { name, address, description }) }
+    catch (error) { window.alert(error instanceof Error ? error.message : 'Не удалось изменить объект') }
+  }
+
+  async function removeProject(project: typeof crm.projects[number]) {
+    if (!window.confirm('Удалить объект «' + project.name + '»? Все связанные задачи также будут удалены.')) return
+    try { await crm.deleteProject(project.id) }
+    catch (error) { window.alert(error instanceof Error ? error.message : 'Не удалось удалить объект') }
+  }
+
+  async function editTask(task: typeof crm.tasks[number]) {
+    const title = window.prompt('Название задачи:', task.title)?.trim()
+    if (!title) return
+    const description = window.prompt('Описание задачи:', task.description)?.trim()
+    if (description === null || description === undefined) return
+    const dueDate = window.prompt('Срок (ГГГГ-ММ-ДД, пусто — без срока):', task.due_date ?? '')
+    if (dueDate === null) return
+    try {
+      await crm.updateTask(task.id, {
+        title, description, project_id: task.project_id, assignee_id: task.assignee_id,
+        due_date: dueDate.trim() || null, priority: task.priority,
+      })
+    } catch (error) { window.alert(error instanceof Error ? error.message : 'Не удалось изменить задачу') }
+  }
+
+  async function removeTask(task: typeof crm.tasks[number]) {
+    if (!window.confirm('Удалить задачу «' + task.title + '»?')) return
+    try { await crm.deleteTask(task.id) }
+    catch (error) { window.alert(error instanceof Error ? error.message : 'Не удалось удалить задачу') }
+  }
+
   async function moveTask(id: string, status: TaskStatus) {
     let comment: string | undefined
     if (status === 'revision') {
@@ -102,7 +140,7 @@ function App() {
 
             {(activeNav === 'Обзор' || activeNav === 'Объекты') && <section className="panel projects-panel">
               <div className="section-heading"><div><h2>Строительные объекты</h2><p>Реальные данные из Supabase</p></div><div className="table-tools">{role === 'manager' && <button className="primary-button" onClick={() => { setModal('project'); setFormError(null) }}><Plus size={15} /> Новый объект</button>}</div></div>
-              {crm.projects.length === 0 ? <div className="empty-state">Объектов пока нет{role === 'manager' ? ' — создайте первый объект.' : '.'}</div> : <div className="project-grid">{crm.projects.map((project, index) => <button className={selectedProject === project.id ? 'project-card selected' : 'project-card'} key={project.id} onClick={() => { setSelectedProject(selectedProject === project.id ? null : project.id); setActiveNav('Обзор') }}><div className="project-top"><div className={'project-icon project-icon-' + (index % 3)}><Building2 size={19} /></div><span className="project-menu">•••</span></div><h3>{project.name}</h3><p className="project-address">{project.address || 'Адрес не указан'}</p><div className="progress-meta"><span>Принято задач</span><b>{project.progress}%</b></div><div className="progress-track"><div style={{ width: project.progress + '%' }} /></div><div className="project-footer"><span><ClipboardList size={14} />{project.tasksCount} задач</span><span>Открыть <ArrowUpRight size={13} /></span></div></button>)}</div>}
+              {crm.projects.length === 0 ? <div className="empty-state">Объектов пока нет{role === 'manager' ? ' — создайте первый объект.' : '.'}</div> : <div className="project-grid">{crm.projects.map((project, index) => <article className={selectedProject === project.id ? 'project-card selected' : 'project-card'} key={project.id}><div className="project-top"><div className={'project-icon project-icon-' + (index % 3)}><Building2 size={19} /></div><span className="project-menu">•••</span></div><h3>{project.name}</h3><p className="project-address">{project.address || 'Адрес не указан'}</p><div className="progress-meta"><span>Принято задач</span><b>{project.progress}%</b></div><div className="progress-track"><div style={{ width: project.progress + '%' }} /></div><div className="project-footer"><span><ClipboardList size={14} />{project.tasksCount} задач</span><button className="text-button" onClick={() => { setSelectedProject(selectedProject === project.id ? null : project.id); setActiveNav('Обзор') }}>Открыть <ArrowUpRight size={13} /></button></div>{role === 'manager' && <div className="project-actions"><button className="text-button" onClick={() => void editProject(project)}>Изменить</button><button className="text-button danger-text" onClick={() => void removeProject(project)}>Удалить</button></div>}</article>)}</div>}
             </section>}
 
             {(activeNav === 'Обзор' || activeNav === 'Мои задачи' || activeNav === 'Объекты') && <section className="panel tasks-panel">
@@ -111,7 +149,7 @@ function App() {
                 const taskHistory = crm.history.filter(entry => entry.task_id === task.id)
                 const historyExpanded = expandedHistoryTask === task.id
                 return <Fragment key={task.id}>
-                  <div className="task-row"><div className="task-name"><b>{task.title}</b><span>{task.project?.name ?? 'Объект удалён'} · {task.description}</span><button className="history-toggle" onClick={() => setExpandedHistoryTask(historyExpanded ? null : task.id)}><Clock3 size={12} /> История ({taskHistory.length}) <ChevronDown size={12} className={historyExpanded ? 'history-chevron expanded' : 'history-chevron'} /></button></div><div className="assignee"><div className="avatar small-avatar">{(task.assignee?.full_name || '?').split(' ').map(x => x[0]).join('')}</div>{task.assignee?.full_name || 'Неизвестно'}</div><div className="due-date">{task.due_date ? new Date(task.due_date + 'T00:00:00').toLocaleDateString('ru-RU') : '—'}</div><div><span className={'status-pill ' + statusClasses[task.status]}>{statusLabels[task.status]}</span></div><div className="task-actions">{role === 'executor' && task.assignee_id === auth.profile?.id && (task.status === 'new' || task.status === 'revision' || task.status === 'in_progress') ? <button className="complete-button" onClick={() => void moveTask(task.id, task.status === 'new' || task.status === 'revision' ? 'in_progress' : 'review')}>{task.status === 'in_progress' ? 'На проверку' : 'В работу'}</button> : role === 'manager' && task.status === 'review' ? <div className="task-manager-actions"><button className="complete-button" onClick={() => void moveTask(task.id, 'accepted')}>Принять</button><button className="complete-button" onClick={() => void moveTask(task.id, 'revision')}>Доработка</button></div> : <span />}</div></div>
+                  <div className="task-row"><div className="task-name"><b>{task.title}</b><span>{task.project?.name ?? 'Объект удалён'} · {task.description}</span><button className="history-toggle" onClick={() => setExpandedHistoryTask(historyExpanded ? null : task.id)}><Clock3 size={12} /> История ({taskHistory.length}) <ChevronDown size={12} className={historyExpanded ? 'history-chevron expanded' : 'history-chevron'} /></button></div><div className="assignee"><div className="avatar small-avatar">{(task.assignee?.full_name || '?').split(' ').map(x => x[0]).join('')}</div>{task.assignee?.full_name || 'Неизвестно'}</div><div className="due-date">{task.due_date ? new Date(task.due_date + 'T00:00:00').toLocaleDateString('ru-RU') : '—'}</div><div><span className={'status-pill ' + statusClasses[task.status]}>{statusLabels[task.status]}</span></div><div className="task-actions">{role === 'manager' && <><button className="text-button" onClick={() => void editTask(task)}>Изменить</button><button className="text-button danger-text" onClick={() => void removeTask(task)}>Удалить</button></>}{role === 'executor' && task.assignee_id === auth.profile?.id && (task.status === 'new' || task.status === 'revision' || task.status === 'in_progress') ? <button className="complete-button" onClick={() => void moveTask(task.id, task.status === 'new' || task.status === 'revision' ? 'in_progress' : 'review')}>{task.status === 'in_progress' ? 'На проверку' : 'В работу'}</button> : role === 'manager' && task.status === 'review' ? <div className="task-manager-actions"><button className="complete-button" onClick={() => void moveTask(task.id, 'accepted')}>Принять</button><button className="complete-button" onClick={() => void moveTask(task.id, 'revision')}>Доработка</button></div> : <span />}</div></div>
                   {historyExpanded && <div className="task-history-row">{taskHistory.length === 0 ? <p>Изменений статуса пока нет. История начнёт заполняться после первого перехода.</p> : <ol>{taskHistory.map(entry => <li key={entry.id}><div className="history-event"><span className={'status-pill ' + statusClasses[entry.old_status]}>{statusLabels[entry.old_status]}</span><span className="history-arrow">→</span><span className={'status-pill ' + statusClasses[entry.new_status]}>{statusLabels[entry.new_status]}</span><span className="history-date">{new Date(entry.changed_at).toLocaleString('ru-RU')}</span></div><div className="history-meta">{entry.actor?.full_name || 'Пользователь'}{entry.comment ? <span>Комментарий: {entry.comment}</span> : null}</div></li>)}</ol>}</div>}
                 </Fragment>
               })}{visibleTasks.length === 0 && <div className="empty-state">Задачи не найдены</div>}</div>
