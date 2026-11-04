@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { Activity, ArrowUpRight, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown, CircleHelp, ClipboardList, Clock3, FileText, LayoutDashboard, Plus, Search, Settings, ShieldCheck, Users, HardHat } from 'lucide-react'
 import { projects as initialProjects, tasks as initialTasks } from './data'
 import type { Role, TaskStatus } from './types'
+import LoginPage from './LoginPage'
+import { useAuth } from './lib/useAuth'
 
 const statusLabels: Record<TaskStatus, string> = {
   new: 'Новая',
@@ -20,7 +22,9 @@ const statusClasses: Record<TaskStatus, string> = {
 }
 
 function App() {
-  const [role, setRole] = useState<Role>('manager')
+  const auth = useAuth()
+  const [demoRole, setDemoRole] = useState<Role>('manager')
+  const role: Role = auth.profile?.role ?? demoRole
   const [activeNav, setActiveNav] = useState('Обзор')
   const [search, setSearch] = useState('')
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
@@ -58,11 +62,11 @@ function App() {
             return <button key={item.label} className={activeNav === item.label ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveNav(item.label); setSelectedProject(null) }}><Icon size={18} />{item.label}{item.label === 'Мои задачи' && <span className="nav-count">5</span>}</button>
           })}
         </nav>
-        <div className="sidebar-bottom"><button className="nav-item"><Settings size={18} />Настройки</button><button className="nav-item"><CircleHelp size={18} />Помощь</button><div className="profile-mini"><div className="avatar">АП</div><div><b>{role === 'manager' ? 'Анна Петрова' : 'Алексей Смирнов'}</b><span>{role === 'manager' ? 'Постановщик' : 'Исполнитель'}</span></div><ChevronDown size={16} /></div></div>
+        <div className="sidebar-bottom"><button className="nav-item"><Settings size={18} />Настройки</button><button className="nav-item"><CircleHelp size={18} />Помощь</button><div className="profile-mini"><div className="avatar">{(auth.profile?.full_name || (role === 'manager' ? 'Анна Петрова' : 'Алексей Смирнов')).split(' ').map(part => part[0]).join('').slice(0, 2)}</div><div><b>{auth.profile?.full_name || (role === 'manager' ? 'Анна Петрова' : 'Алексей Смирнов')}</b><span>{role === 'manager' ? 'Постановщик' : 'Исполнитель'}</span></div>{auth.configured ? <button className="signout-button" onClick={() => void auth.signOut()}>Выйти</button> : <ChevronDown size={16} />}</div></div>
       </aside>
 
       <main className="main">
-        <header className="topbar"><div className="breadcrumb">Рабочее пространство <span>/</span> <b>{activeNav}</b></div><div className="top-actions"><label className="role-switch"><span>Режим</span><select value={role} onChange={e => setRole(e.target.value as Role)}><option value="manager">Постановщик</option><option value="executor">Исполнитель</option></select></label><button className="icon-button"><Bell size={18} /><i /></button><div className="avatar top-avatar">{role === 'manager' ? 'АП' : 'АС'}</div></div></header>
+        <header className="topbar"><div className="breadcrumb">Рабочее пространство <span>/</span> <b>{activeNav}</b></div><div className="top-actions">{!auth.configured && <label className="role-switch"><span>Демо-режим</span><select value={demoRole} onChange={e => setDemoRole(e.target.value as Role)}><option value="manager">Постановщик</option><option value="executor">Исполнитель</option></select></label>}<button className="icon-button"><Bell size={18} /><i /></button><div className="avatar top-avatar">{role === 'manager' ? 'АП' : 'АС'}</div></div></header>
 
         <div className="content">
           <div className="page-heading"><div><div className="eyebrow">СРЕДА УПРАВЛЕНИЯ ПРОЕКТАМИ</div><h1>{activeNav === 'Обзор' ? 'Добрый день, Анна' : activeNav}</h1><p>{role === 'manager' ? 'Контролируйте ход работ и держите задачи под контролем.' : 'Здесь собраны ваши задачи и ближайшие сроки.'}</p></div><button className="primary-button" onClick={() => setShowCreate(true)}><Plus size={17} /> Новая задача</button></div>
